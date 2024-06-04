@@ -11,45 +11,86 @@ public class InventoryManagement {
     public static Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) throws ClassNotFoundException {
-        // Database connection details
-        String url = "jdbc:mysql://localhost:3306/sql_quiz";
-        String username = "root";
-        String password = "rootroot";
-
         // Load Driver Class
         Class.forName("com.mysql.cj.jdbc.Driver");
 
-        System.out.println("Enter username: ");
-        String usern = scanner.nextLine();
-        System.out.println("Enter password: ");
-        String passw = scanner.nextLine();
-        User user = authenticateUser(usern, passw);
+        boolean im_running = true;
 
-        if (user != null) {
-            System.out.println("Success. Welcome " + user.getUsername());
-            if ("admin".equalsIgnoreCase(user.getRole())) {
-                return;
-            } else if ("none".equalsIgnoreCase(user.getRole()))
-                System.out.println("1. View Product");
-                System.out.println("2. Search Product");
-                System.out.println("3. Sell Product");
-                System.out.println("4. Exit");
-                int choice = scanner.nextInt();
-                if (choice == 1) {
-                    viewProducts();
-                }
+        try(Connection connection = DriverManager.getConnection(url, username, password)) {
+            System.out.println("Enter username: ");
+            String usern = scanner.nextLine();
+            System.out.println("Enter password: ");
+            String passw = scanner.nextLine();
+            User user = authenticateUser(connection, usern, passw);
 
-        }  else {
-            System.out.println("Authentication failed. Try Again.");
+            if (user != null) {
+                System.out.println("Success. Welcome " + user.getUsername());
+                if ("admin".equalsIgnoreCase(user.getRole())) {
+                    while (im_running) {
+                        System.out.println("1. Add Product");
+                        System.out.println("2. Update Product");
+                        System.out.println("3. Delete Product");
+                        System.out.println("4. View Products");
+                        int choice = scanner.nextInt();
+                        scanner.nextLine();
+                        if (choice == 1) {
+                            System.out.println("What is the product name?");
+                            String name = scanner.nextLine();
+                            System.out.println("Quantity?");
+                            int quantity = scanner.nextInt();
+                            System.out.println("Price?");
+                            int price = scanner.nextInt();
+                            addProduct(connection, name, quantity, price);
+                        } else if (choice == 2) {
+                            System.out.println("Product Id?");
+                            int product_id = scanner.nextInt();
+                            scanner.nextLine();
+                            System.out.println("Product name?");
+                            String name = scanner.nextLine();
+                            System.out.println("Quantity?");
+                            int quantity = scanner.nextInt();
+                            System.out.println("Price?");
+                            int price = scanner.nextInt();
+                            updateProduct(connection, product_id, name, quantity, price);
+                        } else if (choice == 3) {
+                            System.out.println("Product Id?");
+                            int product_id = scanner.nextInt();
+                            deleteProduct(connection, product_id);
+                        } else if (choice == 4) {
+                            viewProducts(connection);
+                        }
+                    }
+
+                } else if ("none".equalsIgnoreCase(user.getRole()))
+                    while(im_running) {
+                        System.out.println("1. View Product");
+                        System.out.println("2. Search Product");
+                        System.out.println("3. Sell Product");
+                        System.out.println("4. Exit");
+                        int choice = scanner.nextInt();
+                        scanner.nextLine();
+                        if (choice == 1) {
+                            viewProducts(connection);
+                        } else if (choice == 2) {
+                            System.out.println("Product Id?");
+                            int product_id = scanner.nextInt();
+                            searchProduct(connection, product_id);
+                        } else if (choice == 4) {
+                            im_running = false;
+                        }
+                    }
+
+            }  else {
+                System.out.println("Authentication failed. Try Again.");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
-
-
     }
 
-    public static User authenticateUser(String usern, String passw) {
+    public static User authenticateUser(Connection connection, String usern, String passw) {
         String readQuery = "Select * FROM users WHERE username = (?) AND password = (?)";
-        try(Connection connection = DriverManager.getConnection(url, username, password);
-        PreparedStatement preparedStatement = connection.prepareStatement(readQuery)) {
+        try(PreparedStatement preparedStatement = connection.prepareStatement(readQuery)) {
             preparedStatement.setString(1, usern);
             preparedStatement.setString(2, passw);
             ResultSet resultSet = preparedStatement.executeQuery();
@@ -67,9 +108,80 @@ public class InventoryManagement {
         return null;
     }
 
-    public static void viewProducts() {
+    public static void viewProducts(Connection connection) {
         String readQuery = "SELECT * FROM products";
-
+        try (Statement readStatement = connection.createStatement();
+        ResultSet resultSet = readStatement.executeQuery(readQuery)) {
+            while (resultSet.next()) {
+                System.out.print("Product ");
+                System.out.print("{Id : " +resultSet.getString("id") + "| ");
+                System.out.print("Name : " +resultSet.getString("name") + "| ");
+                System.out.print("Quantity : " +resultSet.getString("quantity") + "| ");
+                System.out.print("Price : " +resultSet.getString("price") + "}");
+                System.out.println(" ");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
+
+    public static void addProduct(Connection connection, String name, int quantity, int price) {
+        String insertQuery = "INSERT INTO products(name, quantity, price) VALUES(?, ?, ?)";
+        try(PreparedStatement createStatement = connection.prepareStatement(insertQuery)){
+            createStatement.setString(1, name);
+            createStatement.setInt(2, quantity);
+            createStatement.setInt(3, price);
+            createStatement.executeUpdate();
+        }catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void updateProduct(Connection connection, int id, String name, int quantity, int price) throws SQLException {
+        String updateQuery = "UPDATE products SET name = ?, quantity = ?, price = ? WHERE id = ?";
+        try (PreparedStatement updateStatement = connection.prepareStatement(updateQuery)) {
+            updateStatement.setString(1, name);
+            updateStatement.setInt(2, quantity);
+            updateStatement.setInt(3, price);
+            updateStatement.setInt(4, id);
+            updateStatement.executeUpdate();
+            System.out.println("Success. Product updated!");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void deleteProduct(Connection connection, int id) {
+        String deleteQuery = "DELETE FROM products WHERE id = ?";
+        try (PreparedStatement deleteStatement = connection.prepareStatement(deleteQuery)) {
+            deleteStatement.setInt(1, id);
+            deleteStatement.executeUpdate();
+            System.out.println("Success. Product deleted.");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void searchProduct(Connection connection, int id) {
+        String searchQuery = "SELECT * FROM products WHERE id = ?";
+        try (PreparedStatement createStatement = connection.prepareStatement(searchQuery)) {
+            createStatement.setInt(1, id);
+
+            try (ResultSet resultSet = createStatement.executeQuery()) {
+                if (resultSet.next() ) {
+                    System.out.print("Product ");
+                    System.out.print("{Id : " +resultSet.getString("id") + "}");
+                    System.out.print("{Name : " +resultSet.getString("name") + "}");
+                    System.out.print("{Quantity : " +resultSet.getString("quantity") + "}");
+                    System.out.print("{Price : " +resultSet.getString("price") + "}");
+                    System.out.print("{name : " +resultSet.getString("name") + "}");
+                }
+            }
+            System.out.println("Success. Product updated!");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
 }
