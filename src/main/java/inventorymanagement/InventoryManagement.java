@@ -17,6 +17,7 @@ public class InventoryManagement {
         boolean im_running = true;
 
         try(Connection connection = DriverManager.getConnection(url, username, password)) {
+            // Authentication
             System.out.println("Enter username: ");
             String usern = scanner.nextLine();
             System.out.println("Enter password: ");
@@ -31,6 +32,8 @@ public class InventoryManagement {
                         System.out.println("2. Update Product");
                         System.out.println("3. Delete Product");
                         System.out.println("4. View Products");
+                        System.out.println("5. Sell Product");
+                        System.out.println("6. Exit");
                         int choice = scanner.nextInt();
                         scanner.nextLine();
                         if (choice == 1) {
@@ -58,6 +61,19 @@ public class InventoryManagement {
                             deleteProduct(connection, product_id);
                         } else if (choice == 4) {
                             viewProducts(connection);
+                        } else if (choice == 5) {
+                            System.out.println("Product Id?");
+                            int product_id = scanner.nextInt();
+                            scanner.nextLine();
+                            System.out.println("Quantity?");
+                            int quantity = scanner.nextInt();
+                            System.out.println("Price?");
+                            int price = scanner.nextInt();
+                            sellProduct(connection, product_id, quantity, price);
+                        } else if (choice == 6) {
+                            im_running = false;
+                        } else {
+                            System.out.println("Pick a number from the options.");
                         }
                     }
 
@@ -75,8 +91,19 @@ public class InventoryManagement {
                             System.out.println("Product Id?");
                             int product_id = scanner.nextInt();
                             searchProduct(connection, product_id);
+                        } else if (choice == 3) {
+                            System.out.println("Product Id?");
+                            int product_id = scanner.nextInt();
+                            scanner.nextLine();
+                            System.out.println("Quantity?");
+                            int quantity = scanner.nextInt();
+                            System.out.println("Price?");
+                            int price = scanner.nextInt();
+                            sellProduct(connection, product_id, quantity, price);
                         } else if (choice == 4) {
                             im_running = false;
+                        } else {
+                            System.out.println("Pick a number from the options.");
                         }
                     }
 
@@ -89,6 +116,7 @@ public class InventoryManagement {
     }
 
     public static User authenticateUser(Connection connection, String usern, String passw) {
+        // Verify if user exists with correct username and password
         String readQuery = "Select * FROM users WHERE username = (?) AND password = (?)";
         try(PreparedStatement preparedStatement = connection.prepareStatement(readQuery)) {
             preparedStatement.setString(1, usern);
@@ -109,14 +137,15 @@ public class InventoryManagement {
     }
 
     public static void viewProducts(Connection connection) {
+        // Returns all products
         String readQuery = "SELECT * FROM products";
         try (Statement readStatement = connection.createStatement();
         ResultSet resultSet = readStatement.executeQuery(readQuery)) {
             while (resultSet.next()) {
                 System.out.print("Product ");
-                System.out.print("{Id : " +resultSet.getString("id") + "| ");
-                System.out.print("Name : " +resultSet.getString("name") + "| ");
-                System.out.print("Quantity : " +resultSet.getString("quantity") + "| ");
+                System.out.print("{Id : " +resultSet.getString("id") + " | ");
+                System.out.print("Name : " +resultSet.getString("name") + " | ");
+                System.out.print("Quantity : " +resultSet.getString("quantity") + " | ");
                 System.out.print("Price : " +resultSet.getString("price") + "}");
                 System.out.println(" ");
             }
@@ -126,12 +155,15 @@ public class InventoryManagement {
     }
 
     public static void addProduct(Connection connection, String name, int quantity, int price) {
+        // Insert data to products
         String insertQuery = "INSERT INTO products(name, quantity, price) VALUES(?, ?, ?)";
         try(PreparedStatement createStatement = connection.prepareStatement(insertQuery)){
             createStatement.setString(1, name);
             createStatement.setInt(2, quantity);
             createStatement.setInt(3, price);
             createStatement.executeUpdate();
+            System.out.println(" ");
+            System.out.println("Success. Product added!");
         }catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -145,6 +177,7 @@ public class InventoryManagement {
             updateStatement.setInt(3, price);
             updateStatement.setInt(4, id);
             updateStatement.executeUpdate();
+            System.out.println(" ");
             System.out.println("Success. Product updated!");
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -152,10 +185,12 @@ public class InventoryManagement {
     }
 
     public static void deleteProduct(Connection connection, int id) {
+        // Delete product based on id
         String deleteQuery = "DELETE FROM products WHERE id = ?";
         try (PreparedStatement deleteStatement = connection.prepareStatement(deleteQuery)) {
             deleteStatement.setInt(1, id);
             deleteStatement.executeUpdate();
+            System.out.println(" ");
             System.out.println("Success. Product deleted.");
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -163,6 +198,7 @@ public class InventoryManagement {
     }
 
     public static void searchProduct(Connection connection, int id) {
+        // Search product with ID
         String searchQuery = "SELECT * FROM products WHERE id = ?";
         try (PreparedStatement createStatement = connection.prepareStatement(searchQuery)) {
             createStatement.setInt(1, id);
@@ -170,16 +206,27 @@ public class InventoryManagement {
             try (ResultSet resultSet = createStatement.executeQuery()) {
                 if (resultSet.next() ) {
                     System.out.print("Product ");
-                    System.out.print("{Id : " +resultSet.getString("id") + "}");
-                    System.out.print("{Name : " +resultSet.getString("name") + "}");
-                    System.out.print("{Quantity : " +resultSet.getString("quantity") + "}");
-                    System.out.print("{Price : " +resultSet.getString("price") + "}");
-                    System.out.print("{name : " +resultSet.getString("name") + "}");
+                    System.out.print("{Id : " +resultSet.getString("id") + " | ");
+                    System.out.print("Name : " +resultSet.getString("name") + " | ");
+                    System.out.print("Quantity : " +resultSet.getString("quantity") + " | ");
+                    System.out.print("Price : " +resultSet.getString("price") + " | ");
+                    System.out.print("name : " +resultSet.getString("name") + "}");
+                    System.out.println(" ");
                 }
             }
-            System.out.println("Success. Product updated!");
         } catch (SQLException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static void sellProduct(Connection connection, int product_id, int quantity, int price) throws SQLException {
+        String updateQuery = "UPDATE products SET quantity = quantity - ?, price = price - ? WHERE id = ?";
+        try (PreparedStatement createStatement = connection.prepareStatement(updateQuery)) {
+            createStatement.setInt(1, quantity);
+            createStatement.setInt(2, price);
+            createStatement.setInt(3, product_id);
+            createStatement.executeUpdate();
+            System.out.println("Success. " + quantity + " items sold!");
         }
     }
 
