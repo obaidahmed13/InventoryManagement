@@ -22,21 +22,26 @@ public class InventoryManagement {
             String usern = scanner.nextLine();
             System.out.println("Enter password: ");
             String passw = scanner.nextLine();
+            // An object with the user information is also created
             User user = authenticateUser(connection, usern, passw);
 
             if (user != null) {
                 System.out.println("Success. Welcome " + user.getUsername());
                 if ("admin".equalsIgnoreCase(user.getRole())) {
+                    // Gives access to features based on if the user exists and the role of the user
                     while (im_running) {
+                        // Admin Menu
                         System.out.println("1. Add Product");
                         System.out.println("2. Update Product");
                         System.out.println("3. Delete Product");
                         System.out.println("4. View Products");
                         System.out.println("5. Sell Product");
-                        System.out.println("6. Exit");
+                        System.out.println("6. Generate Sales Report");
+                        System.out.println("7. Exit");
                         int choice = scanner.nextInt();
                         scanner.nextLine();
                         if (choice == 1) {
+                            // Add products
                             System.out.println("What is the product name?");
                             String name = scanner.nextLine();
                             System.out.println("Quantity?");
@@ -45,6 +50,7 @@ public class InventoryManagement {
                             int price = scanner.nextInt();
                             addProduct(connection, name, quantity, price);
                         } else if (choice == 2) {
+                            // Update products
                             System.out.println("Product Id?");
                             int product_id = scanner.nextInt();
                             scanner.nextLine();
@@ -56,12 +62,15 @@ public class InventoryManagement {
                             int price = scanner.nextInt();
                             updateProduct(connection, product_id, name, quantity, price);
                         } else if (choice == 3) {
+                            // Delete Products
                             System.out.println("Product Id?");
                             int product_id = scanner.nextInt();
                             deleteProduct(connection, product_id);
                         } else if (choice == 4) {
+                            // View All Products
                             viewProducts(connection);
                         } else if (choice == 5) {
+                            // Sell a Product
                             System.out.println("Product Id?");
                             int product_id = scanner.nextInt();
                             scanner.nextLine();
@@ -71,6 +80,9 @@ public class InventoryManagement {
                             int price = scanner.nextInt();
                             sellProduct(connection, product_id, quantity, price);
                         } else if (choice == 6) {
+                            // Generate Sales report
+                            generateSalesReport(connection);
+                        } else if (choice == 7) {
                             im_running = false;
                         } else {
                             System.out.println("Pick a number from the options.");
@@ -123,6 +135,7 @@ public class InventoryManagement {
             preparedStatement.setString(2, passw);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
+                // Created user object with information of logged in user
                 User user = new User();
                 user.setId(resultSet.getInt("id"));
                 user.setUsername(resultSet.getString("username"));
@@ -170,6 +183,7 @@ public class InventoryManagement {
     }
 
     public static void updateProduct(Connection connection, int id, String name, int quantity, int price) throws SQLException {
+        // Update product
         String updateQuery = "UPDATE products SET name = ?, quantity = ?, price = ? WHERE id = ?";
         try (PreparedStatement updateStatement = connection.prepareStatement(updateQuery)) {
             updateStatement.setString(1, name);
@@ -220,6 +234,16 @@ public class InventoryManagement {
     }
 
     public static void sellProduct(Connection connection, int product_id, int quantity, int price) throws SQLException {
+        // Add data to sales table for products sold
+        String insertSaleQuery = "INSERT INTO sales(product_id, quantity_sold, price_sold, sale_date) VALUES(?, ?, ?, NOW())";
+        try (PreparedStatement insertStatement = connection.prepareStatement(insertSaleQuery)) {
+            insertStatement.setInt(1, product_id);
+            insertStatement.setInt(2, quantity);
+            insertStatement.setInt(3, price);
+            insertStatement.executeUpdate();
+        }
+
+        // Update products sold information
         String updateQuery = "UPDATE products SET quantity = quantity - ?, price = price - ? WHERE id = ?";
         try (PreparedStatement createStatement = connection.prepareStatement(updateQuery)) {
             createStatement.setInt(1, quantity);
@@ -230,5 +254,22 @@ public class InventoryManagement {
         }
     }
 
+    public static void generateSalesReport(Connection connection) {
+        // Return information about products sold
+        String query = "SELECT products.name, sales.quantity_sold, sales.price_sold, sales.sale_date FROM sales JOIN products ON sales.product_id = products.id";
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            System.out.println("Sales Report:");
+            while (resultSet.next()) {
+                System.out.print("Name : " +resultSet.getString("name") + " | ");
+                System.out.print("Quantity Sold : " +resultSet.getString("quantity_sold") + " | ");
+                System.out.print("Price Sold : " +resultSet.getString("price_sold") + " | ");
+                System.out.print("Sales Date : " +resultSet.getString("sale_date") + "}");
+                System.out.println(" ");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error generating sales report", e);
+        }
+    }
 
 }
